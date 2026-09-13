@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# security-scan: one step, every build.
+#   1. trivy fs  → security-report.json  (vulns in go.mod / package-lock, secrets, misconfig in Dockerfile / k8s / terraform)
+#   2. trivy convert → security-report.md (the template in bin/)
+#   3. on the agent host: annotate the build page, upload both files, apply the gate
+#
+# Gate (ADR-0004: this plugin's own CI proves it fails on a planted secret every run):
+#   any secret                                  → fail
+#   any CRITICAL or HIGH vulnerability with fix → fail
+#   misconfigurations: a ratchet. The repo's floor file holds the highest CRITICAL
+#   and HIGH counts allowed; exceeding either fails; the floor only moves DOWN,
+#   in the same PR as the fix. Accepted findings go in the repo's .trivyignore.yaml
+#   WITH an expiry, never bare.
+set -euo pipefail
+
+PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Digest, not tag: upstream rebuilds tags in place. 0.74.0 multi-arch index, 2026-09-13.
+IMAGE="${BUILDKITE_PLUGIN_SECURITY_SCAN_IMAGE:-aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969}"
+FLOOR="${BUILDKITE_PLUGIN_SECURITY_SCAN_FLOOR_FILE:-.buildkite/security-floor}"
+SKIP="${BUILDKITE_PLUGIN_SECURITY_SCAN_SKIP_DIRS:-vendor,node_modules,.git,ios,android}"
+JSON=security-report.json
+MD=security-report.md
+
+ignore_args=()
+[ -f .trivyignore.yaml ] && ignore_args=(--ignorefile .trivyignore.yaml)
+
+echo "--- :shield: trivy fs ($IMAGE)"
+docker run --rm -v "$PWD":/workdir -w /workdir -v routeaero-trivy-cache:/root/.cache/trivy \
+  -e TRIVY_NO_PROGRESS=true "$IMAGE" fs --scanners vuln,secret,misconfig \
+  --skip-dirs "$SKIP" ${ignore_args[@]+"${ignore_args[@]}"} --format json --output "$JSON" --quiet .
+docker run --rm -v "$PWD":/workdir -w /workdir -v "$PLUGIN_DIR/bin":/plugin:ro "$IMAGE" \
+  convert --format template --template @/plugin/security-report.tpl --output "$MD" --quiet "$JSON"
+
+summary=$(grep '^SUMMARY ' "$MD" | sed 's/^SUMMARY //')
+# shellcheck disable=SC2086 # the template emits shell-safe key=value pairs only
+eval $summary
+echo "security: $summary"
+
+floor_critical=0; floor_high=0
+if [ -f "$FLOOR" ]; then
+  # shellcheck disable=SC1090
+  . "./$FLOOR"
+fi
+
+fail=""
+[ "$secrets" -gt 0 ] && fail="$fail secrets=$secrets"
+[ "$vuln_fixable_high" -gt 0 ] && fail="$fail fixable_critical_or_high_vulns=$vuln_fixable_high"
+[ "$misconf_critical" -gt "$floor_critical" ] && fail="$fail misconf_critical=$misconf_critical>floor=$floor_critical"
+[ "$misconf_high" -gt "$floor_high" ] && fail="$fail misconf_high=$misconf_high>floor=$floor_high"
+
+style=success
+[ "$misconf_critical$misconf_high$vuln_critical$vuln_high" != "0000" ] && style=warning
+[ -n "$fail" ] && style=error
+
+if command -v buildkite-agent >/dev/null 2>&1 && [ -n "${BUILDKITE_JOB_ID:-}" ]; then
+  echo "--- :memo: report"
+  {
+    echo "**Gate:** ${fail:-passed}. Floor: critical<=$floor_critical high<=$floor_high (\`$FLOOR\`). \`$JSON\` and \`$MD\` are artifacts of this step."
+    grep -v '^SUMMARY ' "$MD"
+  } | buildkite-agent annotate --context security-scan --style "$style"
+  buildkite-agent artifact upload "$JSON;$MD"
+fi
+
+if [ -n "$fail" ]; then
+  echo "^^^ +++"
+  echo "SECURITY GATE FAILED:$fail"
+  echo "Fix it, or record an accepted risk in .trivyignore.yaml with an expiry date. Never raise the floor."
+  exit 1
+fi
+echo "security gate passed"

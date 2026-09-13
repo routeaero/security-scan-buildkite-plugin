@@ -1,0 +1,18 @@
+name: security-scan
+description: Trivy scan of dependencies (Go, npm), secrets and IaC misconfigurations (Dockerfile, Kubernetes, Terraform), with a per-build report annotation, artifacts, and a ratchet gate.
+author: https://github.com/routeaero
+requirements:
+  - docker
+  - bash
+configuration:
+  properties:
+    floor-file:
+      type: string
+      description: "Repo-relative file holding the highest allowed CRITICAL and HIGH misconfiguration counts (floor_critical=N, floor_high=M). Missing = 0 0."
+    skip-dirs:
+      type: string
+      description: "Comma-separated directories trivy skips. Default: vendor,node_modules,.git,ios,android"
+    image:
+      type: string
+      description: "Trivy image, digest-pinned. Override only to roll the pin forward deliberately."
+  additionalProperties: false

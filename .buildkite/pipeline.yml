@@ -1,0 +1,18 @@
+# security-scan-buildkite-plugin — lint the plugin, then prove the gate both ways.
+steps:
+  - label: ":shell: shellcheck"
+    key: "shellcheck"
+    command: "shellcheck hooks/command tests/run.sh"
+    plugins:
+      - docker#v5.11.0:
+          image: "koalaman/shellcheck-alpine:v0.11.0"
+
+  - label: ":buildkite: plugin-linter"
+    key: "plugin-lint"
+    plugins:
+      - plugin-linter#v3.3.0:
+          id: routeaero/security-scan
+
+  - label: ":shield: canary — planted secret fails, clean tree passes"
+    key: "canary"
+    command: "bash tests/run.sh"
