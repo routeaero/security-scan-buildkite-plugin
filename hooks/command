@@ -31,7 +31,12 @@ docker run --rm -v "$PWD":/workdir -w /workdir -v routeaero-trivy-cache:/root/.c
 docker run --rm -v "$PWD":/workdir -w /workdir -v "$PLUGIN_DIR/bin":/plugin:ro "$IMAGE" \
   convert --format template --template @/plugin/security-report.tpl --output "$MD" --quiet "$JSON"
 
+# Defaults first, so a template that emits nothing reads as "found nothing"
+# for the report but still fails below on the missing SUMMARY line.
+vuln_critical=0; vuln_high=0; vuln_fixable_high=0
+misconf_critical=0; misconf_high=0; secrets=0
 summary=$(grep '^SUMMARY ' "$MD" | sed 's/^SUMMARY //')
+[ -n "$summary" ] || { echo "no SUMMARY line in $MD: the report template did not run"; exit 1; }
 # shellcheck disable=SC2086 # the template emits shell-safe key=value pairs only
 eval $summary
 echo "security: $summary"
