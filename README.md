@@ -17,7 +17,7 @@ and `security-report.md` (the same table you see on the page).
   - label: ":shield: Security scan"
     key: "security"
     plugins:
-      - routeaero/security-scan#v1.0.0: {}
+      - routeaero/security-scan#v1.0.2: {}
 ```
 
 Add `security` to the `depends_on` of the step that builds or promotes, so a red
