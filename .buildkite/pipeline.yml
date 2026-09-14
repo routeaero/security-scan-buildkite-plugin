@@ -1,11 +1,25 @@
 # security-scan-buildkite-plugin — lint the plugin, then prove the gate both ways.
+env:
+  AWS_ACCOUNT_ID: "956087607070"
+  AWS_DEFAULT_REGION: "us-east-2"
+  BUILDKITE_ROLE_ARN: "arn:aws:iam::956087607070:role/routeaero-buildkite-terraform"
+  # ADR-0022: images come from RouteAero's registry (gateway RUNBOOK §17).
+  # plugin-linter stays public: no tag passes the mirror gate (npm tar).
+  MIRROR: "956087607070.dkr.ecr.us-east-2.amazonaws.com/mirror"
+
 steps:
   - label: ":shell: shellcheck"
     key: "shellcheck"
     command: "shellcheck hooks/command tests/run.sh"
     plugins:
+      - aws-assume-role-with-web-identity#v1.0.0:
+          role-arn: "${BUILDKITE_ROLE_ARN}"
+      - ecr#v2.12.0:
+          login: true
+          account-ids: "956087607070"
+          region: "us-east-2"
       - docker#v5.11.0:
-          image: "koalaman/shellcheck-alpine:v0.11.0"
+          image: "${MIRROR}/shellcheck:v0.11.0-94"
 
   - label: ":buildkite: plugin-linter"
     key: "plugin-lint"
