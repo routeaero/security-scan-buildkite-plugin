@@ -17,8 +17,23 @@ and `security-report.md` (the same table you see on the page).
   - label: ":shield: Security scan"
     key: "security"
     plugins:
-      - routeaero/security-scan#v1.0.2: {}
+      # Required, not optional. The scan runs `docker run` on the AGENT HOST,
+      # not inside a docker plugin container, and since v1.1.0 the scanner comes
+      # from RouteAero's registry (ADR-0022). Without a login the pull fails with
+      # `no basic auth credentials`, and the error names neither the step nor the
+      # missing plugin.
+      - aws-assume-role-with-web-identity#v1.0.0:
+          role-arn: "${BUILDKITE_ROLE_ARN}"
+      - ecr#v2.12.0:
+          login: true
+          account-ids: "956087607070"
+          region: "us-east-2"
+      - routeaero/security-scan#v1.1.0: {}
 ```
+
+The repo also needs `AWS_ACCOUNT_ID`, `AWS_DEFAULT_REGION` and
+`BUILDKITE_ROLE_ARN` in its pipeline `env:` block. Every repo but
+`routeaero-mobile` already had them when v1.1.0 landed.
 
 Add `security` to the `depends_on` of the step that builds or promotes, so a red
 scan stops the deploy the way `vuln` (govulncheck) already does. Go services
