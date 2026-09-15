@@ -14,8 +14,19 @@
 set -euo pipefail
 
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Digest, not tag: upstream rebuilds tags in place. 0.74.0 multi-arch index, 2026-09-13.
-IMAGE="${BUILDKITE_PLUGIN_SECURITY_SCAN_IMAGE:-aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969}"
+# RouteAero's registry, not Docker Hub (ADR-0022, roadmap item 163 step v). The
+# mirrored copy carries the SAME digest as the upstream index -- the mirror job
+# copies the index registry-to-registry -- so this is the identical 0.74.0
+# scanner, just fetched from somewhere we control and have scanned.
+#
+# Digest, not tag: upstream rebuilds tags in place. 0.74.0 multi-arch index,
+# mirrored 2026-09-13.
+#
+# The step running this plugin MUST be able to pull from ECR: it needs the
+# aws-assume-role-with-web-identity and ecr plugins beside this one, because
+# the docker run below happens on the AGENT HOST, not inside a docker plugin
+# container. Without them the pull fails with "no basic auth credentials".
+IMAGE="${BUILDKITE_PLUGIN_SECURITY_SCAN_IMAGE:-956087607070.dkr.ecr.us-east-2.amazonaws.com/mirror/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969}"
 FLOOR="${BUILDKITE_PLUGIN_SECURITY_SCAN_FLOOR_FILE:-.buildkite/security-floor}"
 SKIP="${BUILDKITE_PLUGIN_SECURITY_SCAN_SKIP_DIRS:-vendor,node_modules,.git,ios,android}"
 JSON=security-report.json
