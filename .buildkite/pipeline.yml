@@ -27,6 +27,16 @@ steps:
       - plugin-linter#v3.3.0:
           id: routeaero/security-scan
 
+  # The canary runs on the AGENT HOST, not in a docker plugin container, and it
+  # invokes the plugin -- which now pulls trivy from ECR. So this step needs the
+  # login even though it names no image of its own.
   - label: ":shield: canary — planted secret fails, clean tree passes"
     key: "canary"
     command: "bash tests/run.sh"
+    plugins:
+      - aws-assume-role-with-web-identity#v1.0.0:
+          role-arn: "${BUILDKITE_ROLE_ARN}"
+      - ecr#v2.12.0:
+          login: true
+          account-ids: "956087607070"
+          region: "us-east-2"

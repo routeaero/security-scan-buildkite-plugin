@@ -14,5 +14,5 @@ configuration:
       description: "Comma-separated directories trivy skips. Default: vendor,node_modules,.git,ios,android"
     image:
       type: string
-      description: "Trivy image, digest-pinned. Override only to roll the pin forward deliberately."
+      description: "Trivy image, digest-pinned. Defaults to RouteAero's mirrored copy (ADR-0022); the step needs the aws-assume-role-with-web-identity and ecr plugins to pull it. Override only to roll the pin forward deliberately."
   additionalProperties: false

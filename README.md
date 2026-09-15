@@ -31,7 +31,7 @@ Options (all optional):
 |---|---|---|
 | `floor-file` | `.buildkite/security-floor` | the misconfiguration ratchet, see below |
 | `skip-dirs` | `vendor,node_modules,.git,ios,android` | directories trivy does not walk |
-| `image` | `aquasec/trivy@sha256:62b1e6…` (0.74.0) | the scanner, digest-pinned; roll forward on purpose, never by tag |
+| `image` | `…/mirror/trivy@sha256:62b1e6…` (0.74.0) | the scanner, digest-pinned, from RouteAero's registry (ADR-0022). Same digest as the upstream index. The step needs the `aws-assume-role-with-web-identity` and `ecr` plugins to pull it |
 
 ## The gate
 
