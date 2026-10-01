@@ -97,6 +97,25 @@ tree with a planted fake AWS key and requires the gate to **fail**, then against
 a clean tree and requires it to **pass**. Its own pipeline runs that on every
 push, with shellcheck and the Buildkite plugin linter.
 
+## This repository is public
+
+It has been public since 2026-09-29 (ADR-0030 Decision 7 in
+`routeaero-api-gateway`). RouteAero's self-hosted CI agents fetch plugins
+over HTTPS with no GitHub credentials, so a private plugin cannot be
+fetched. Before the switch, every commit was scanned for keys and tokens.
+
+- **The AWS key in `tests/fixtures/leaky/config.env` is fake.** It is an
+  access-key ID with no secret beside it, and the canary below needs a tree
+  that looks leaky. Do not "fix" it, and expect secret scanners to flag it.
+- **The account ID and role name in the README and pipeline are
+  identifiers, not credentials.** Assuming the role needs Buildkite's OIDC
+  token for our organisation.
+- **Never commit anything here that should be private.** That includes real
+  findings, report output from another repo, and floors or ignore files.
+  Those stay in each consuming repo.
+- **Outside RouteAero, set `image`.** The default scanner image is in
+  RouteAero's private registry.
+
 ## Releasing
 
 Tags are immutable. Bump the version in the pipelines that consume it; never
