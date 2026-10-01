@@ -96,6 +96,9 @@ file stay in each repo, because they are that repo's state.
 tree with a planted fake AWS key and requires the gate to **fail**, then against
 a clean tree and requires it to **pass**. Its own pipeline runs that on every
 push, with shellcheck and the Buildkite plugin linter.
+That pipeline runs on the self-hosted `aws` queue (ADR-0030); setting
+`CI_QUEUE=default` in its Buildkite settings → Environment falls back to hosted
+agents. It clones over HTTPS with no deploy key, because the repo is public.
 
 ## This repository is public
 
