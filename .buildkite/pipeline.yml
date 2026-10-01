@@ -7,10 +7,23 @@ env:
   # plugin-linter stays public: no tag passes the mirror gate (npm tar).
   MIRROR: "956087607070.dkr.ecr.us-east-2.amazonaws.com/mirror"
 
+# ADR-0030: jobs run on the self-hosted `aws` queue (spot Elastic CI Stack in
+# our account, so ECR pulls stay in-region). ${CI_QUEUE:-aws} is interpolated
+# at upload: set CI_QUEUE=default in this pipeline's Buildkite settings →
+# Environment to fall back to hosted agents (README). The pipeline's own
+# initial upload step, configured in Buildkite's UI, still runs on the hosted
+# default queue: it is tiny and pulls nothing.
+agents:
+  queue: "${CI_QUEUE:-aws}"
+
 steps:
   - label: ":shell: shellcheck"
     key: "shellcheck"
     command: "shellcheck hooks/command tests/run.sh"
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 2
     plugins:
       - aws-assume-role-with-web-identity#v1.0.0:
           role-arn: "${BUILDKITE_ROLE_ARN}"
@@ -23,6 +36,10 @@ steps:
 
   - label: ":buildkite: plugin-linter"
     key: "plugin-lint"
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 2
     plugins:
       - plugin-linter#v3.3.0:
           id: routeaero/security-scan
@@ -33,6 +50,10 @@ steps:
   - label: ":shield: canary — planted secret fails, clean tree passes"
     key: "canary"
     command: "bash tests/run.sh"
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 2
     plugins:
       - aws-assume-role-with-web-identity#v1.0.0:
           role-arn: "${BUILDKITE_ROLE_ARN}"
